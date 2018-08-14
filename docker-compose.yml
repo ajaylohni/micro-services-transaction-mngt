@@ -1,0 +1,122 @@
+version: "3"
+services:
+  insert:
+    container_name: Insert
+    build: ./InsertService 
+    ports: 
+      - "8001:8001"
+    networks: 
+      - my-network 
+    depends_on: 
+          - rabbitmq
+          - postgres
+    restart: on-failure
+
+  delete:
+    container_name: Delete
+    build: ./DeleteService
+    
+    ports: 
+      - "8002:8002"
+    networks: 
+      - my-network
+    depends_on: 
+          - rabbitmq
+          - postgres
+    restart: on-failure
+
+  update:
+    container_name: Update
+    build: ./UpdateService
+   
+    ports: 
+      - "8003:8003"
+    networks: 
+      - my-network
+    depends_on: 
+        - rabbitmq
+        - postgres
+    restart: on-failure
+
+  display:
+    container_name: Display
+    build: ./DisplayService
+    ports: 
+      - "8004:8004"
+    networks: 
+      - my-network
+    depends_on: 
+      - rabbitmq
+      - postgres
+    restart: on-failure
+ 
+
+  push-all:
+    container_name: PushAll
+    build: ./PushAllService
+    ports: 
+      - "8005:8005"
+    networks: 
+      - my-network
+    depends_on: 
+      - rabbitmq
+      - postgres
+    restart: on-failure
+    
+  
+  push-msg:
+    container_name: PushMsg
+    build: ./PushMsgService
+    networks: 
+      - my-network
+    depends_on: 
+      - rabbitmq
+      - postgres
+    restart: on-failure
+   
+
+  receive:
+    container_name: Receive
+    build: ./ReceiveMsgService
+    networks: 
+      - my-network
+    depends_on: 
+      - rabbitmq
+      - postgres
+    restart: on-failure
+   
+  rabbitmq:
+    container_name: RabbitMq
+    hostname: rabbit-host
+    image: rabbitmq:3
+    ports:
+      - "5672"
+    volumes: 
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks: 
+      - my-network
+    restart: on-failure
+    
+
+  postgres:
+    container_name: Postgres
+    image: postgres:10
+    environment:
+      POSTGRES_PASSWORD: data
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - "5432"
+    networks: 
+      - my-network
+    restart: on-failure
+
+volumes: 
+  rabbitmq_data:
+    external: true
+  postgres_data:
+    external: true
+
+networks: 
+  my-network:
+    external: true
