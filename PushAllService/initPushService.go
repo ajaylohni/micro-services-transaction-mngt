@@ -10,7 +10,7 @@ import (
 	_ "time"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/gorilla/mux"
+	_ "github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 )
 
@@ -58,30 +58,27 @@ var tableExists bool
 
 func init() {
 	dbinfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, dbUser, dbPass, dbName)
-	db, _ := sql.Open("postgres", dbinfo)
-	defer db.Close()
+	db, err := sql.Open("postgres", dbinfo)
+	checkErr(err, "Database connection failed")
 
-	err := db.QueryRow("SELECT EXISTS (SELECT * FROM information_schema.tables WHERE table_name = 'students')").Scan(&tableExists)
+	err = db.QueryRow("SELECT EXISTS (SELECT * FROM information_schema.tables WHERE table_name = 'students')").Scan(&tableExists)
+	checkErr(err, "Checking table existing failed")
 	if tableExists != true {
 		stmt, err := db.Prepare("create table students(usn integer primary key,name text,age integer,time timestamp without time zone)")
 		checkErr(err, "Create table failed")
 		_, err = stmt.Exec()
+	} else {
+		pushAllmsg(db)
 	}
 	checkErr(err, "init block failed")
 }
 
-func initPushService(w http.ResponseWriter, r *http.Request) {
-
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	dbinfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, dbUser, dbPass, dbName)
-	db, _ := sql.Open("postgres", dbinfo)
-	defer db.Close()
-
+func pushAllmsg(db *sql.DB) {
 	var usn, age int
 	var name, lastUpdated string
 
-	rows, _ := db.Query("select * from students order by usn")
+	rows, err := db.Query("select * from students order by usn")
+	checkErr(err, "Select statement failed")
 	for rows.Next() {
 		err := rows.Scan(&usn, &name, &age, &lastUpdated)
 		msg := jsonConvert(usn, name, age, lastUpdated)
@@ -90,9 +87,10 @@ func initPushService(w http.ResponseWriter, r *http.Request) {
 		req.Header.Set("Content-Type", "text/plain")
 		client := &http.Client{}
 		resp, err := client.Do(req)
-		checkErr(err, "row scan failed")
+		checkErr(err, "Pushing message failed")
 		defer resp.Body.Close()
 	}
+	defer db.Close()
 }
 
 func jsonConvert(usn int, name string, age int, lastUpdated string) []byte {
@@ -110,7 +108,5 @@ func checkErr(err error, text string) {
 }
 
 func main() {
-	r := mux.NewRouter()
-	r.HandleFunc("/init", initPushService).Methods("GET")
-	http.ListenAndServe(":8005", r)
+	fmt.Println("initial snapshot")
 }

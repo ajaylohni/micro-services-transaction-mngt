@@ -70,10 +70,12 @@ func updateService(w http.ResponseWriter, r *http.Request) {
 
 	id := mux.Vars(r)
 	temp := id["id"]
-	usn, _ := strconv.Atoi(temp)
+	usn, err := strconv.Atoi(temp)
+	checkErr(err, "string conversion failed")
 
 	dbinfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, dbUser, dbPass, dbName)
-	db, _ := sql.Open("postgres", dbinfo)
+	db, err := sql.Open("postgres", dbinfo)
+	checkErr(err, "Database connectivity failed")
 	defer db.Close()
 
 	t := time.Now()
@@ -82,7 +84,7 @@ func updateService(w http.ResponseWriter, r *http.Request) {
 
 	var lastUpdateID int
 	sqlStatement := `update students set usn=$1,name=$2,age=$3,time=$4 where usn=$5 returning usn`
-	err := db.QueryRow(sqlStatement, s.USN, s.Name, s.Age, t.Format("2006-01-02 15:04:05"), usn).Scan(&lastUpdateID)
+	err = db.QueryRow(sqlStatement, s.USN, s.Name, s.Age, t.Format("2006-01-02 15:04:05"), usn).Scan(&lastUpdateID)
 	checkErr(err, "Query err")
 
 	usn2, name2, age2, lastUpdated2 := rowScan(db, s.USN)
@@ -94,7 +96,7 @@ func updateService(w http.ResponseWriter, r *http.Request) {
 		req.Header.Set("Content-Type", "text/plain")
 		client := &http.Client{}
 		resp, err := client.Do(req)
-		checkErr(err, "scan row failed")
+		checkErr(err, "Push message service call failed")
 		w.Write([]byte("Record updated successfully"))
 		defer resp.Body.Close()
 	} else {
@@ -106,8 +108,8 @@ func rowScan(db *sql.DB, tag int) (int, string, int, string) {
 	var usn, age int
 	var name, lastUpdated string
 
-	rows, _ := db.Query("select * from students where usn=$1", tag)
-
+	rows, err := db.Query("select * from students where usn=$1", tag)
+	checkErr(err, "select statement failed")
 	for rows.Next() {
 		err := rows.Scan(&usn, &name, &age, &lastUpdated)
 		checkErr(err, "Row scan failed")

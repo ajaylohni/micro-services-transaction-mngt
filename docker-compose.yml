@@ -54,8 +54,6 @@ services:
   push-all:
     container_name: PushAll
     build: ./PushAllService
-    ports: 
-      - "8005:8005"
     networks: 
       - my-network
     depends_on: 

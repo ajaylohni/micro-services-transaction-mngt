@@ -60,24 +60,28 @@ type Metadata struct {
 func deleteService(w http.ResponseWriter, r *http.Request) {
 
 	dbinfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, DbUser, DbPass, DbName)
-	db, _ := sql.Open("postgres", dbinfo)
+	db, err := sql.Open("postgres", dbinfo)
+	checkErr(err, "Database Connection failed")
 	defer db.Close()
 
 	id := mux.Vars(r)
 
 	temp := id["id"]
-	usn, _ := strconv.Atoi(temp)
+	usn, err := strconv.Atoi(temp)
+	checkErr(err, "string to integer convesion failed")
 	msg := scanRow(db, usn)
 
-	res, _ := db.Exec("delete from students where usn=$1", usn)
-	affect, _ := res.RowsAffected()
+	res, err := db.Exec("delete from students where usn=$1", usn)
+	checkErr(err, "Delete statement failed")
+	affect, err := res.RowsAffected()
+	checkErr(err, "Row affect failed")
 	if affect == 1 {
 		req, err := http.NewRequest("POST", "http://PushMsg:8006/push", bytes.NewBuffer(msg))
 		req.Close = true
 		req.Header.Set("Content-Type", "text/plain")
 		client := &http.Client{}
 		resp, err := client.Do(req)
-		checkErr(err, "scan row block")
+		checkErr(err, "Request to push message service failed")
 		defer resp.Body.Close()
 		w.Write([]byte("Record deleted successfully"))
 	} else {
@@ -91,7 +95,8 @@ func scanRow(db *sql.DB, tag int) []byte {
 	var name, lastUpdated string
 	var msg []byte
 
-	rows, _ := db.Query("select * from students where usn=$1", tag)
+	rows, err := db.Query("select * from students where usn=$1", tag)
+	checkErr(err, "select statement failed")
 	for rows.Next() {
 		err := rows.Scan(&usn, &name, &age, &lastUpdated)
 		msg = jsonConvert(usn, name, age, lastUpdated)

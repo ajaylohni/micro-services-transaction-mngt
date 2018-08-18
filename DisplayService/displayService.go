@@ -25,16 +25,17 @@ const (
 
 //Student Fields
 type Student struct {
-	USN         int         `json:"usn,omitempty"`
-	Name        string      `json:"name,omitempty"`
-	Age         int         `json:"age,omitempty"`
-	LastUpdated interface{} `json:"lastUpdate,omitempty"`
+	USN         int    `json:"usn,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Age         int    `json:"age,omitempty"`
+	LastUpdated string `json:"lastUpdate,omitempty"`
 }
 
 func displayService(w http.ResponseWriter, r *http.Request) {
 
 	dbinfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, dbUser, dbPass, dbName)
-	db, _ := sql.Open("postgres", dbinfo)
+	db, err := sql.Open("postgres", dbinfo)
+	checkErr(err, "Database connection failed")
 	defer db.Close()
 
 	var usn, age int
@@ -42,7 +43,8 @@ func displayService(w http.ResponseWriter, r *http.Request) {
 
 	var jsonArray []string
 
-	rows, _ := db.Query("select * from students order by usn")
+	rows, err := db.Query("select * from students order by usn")
+	checkErr(err, "Select statement failed")
 	for rows.Next() {
 		err := rows.Scan(&usn, &name, &age, &lastUpdated)
 		row := jsonConvert(usn, name, age, lastUpdated)

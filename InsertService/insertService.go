@@ -67,28 +67,36 @@ func insertService(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	dbinfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, DbUser, DbPass, DbName)
-	db, _ := sql.Open("postgres", dbinfo)
+	db, err := sql.Open("postgres", dbinfo)
+	checkErr(err, "Database connetion failed")
 	defer db.Close()
 
 	t := time.Now()
 	var lastInsertID int
 	sqlStatement := `INSERT INTO students(usn,name,age,time) VALUES($1,$2,$3,$4) returning usn`
-	err := db.QueryRow(sqlStatement, s.USN, s.Name, s.Age, t.Format("2006-01-02 15:04:05")).Scan(&lastInsertID)
-
+	err = db.QueryRow(sqlStatement, s.USN, s.Name, s.Age, t.Format("2006-01-02 15:04:05")).Scan(&lastInsertID)
+	checkErr(err, "Insert statement failed")
 	if lastInsertID == s.USN {
 		scanRow(db, s.USN)
 		w.Write([]byte("Record inserted successfully"))
 	} else {
 		w.Write([]byte("Failed"))
 	}
-	checkErr(err, "Insert Service Failed")
+
 }
+
+/* An another approach we can take,
+In that instant of scaning a row using select statement,
+we can return inserted velues using postgres insert statement
+and then we can push updated values to queue.
+*/
 
 func scanRow(db *sql.DB, tag int) {
 	var usn, age int
 	var name, lastUpdated string
 
-	rows, _ := db.Query("select * from students where usn=$1", tag)
+	rows, err := db.Query("select * from students where usn=$1", tag)
+	checkErr(err, "Select statement failed")
 	for rows.Next() {
 		err := rows.Scan(&usn, &name, &age, &lastUpdated)
 		msg := jsonConvert(usn, name, age, lastUpdated)

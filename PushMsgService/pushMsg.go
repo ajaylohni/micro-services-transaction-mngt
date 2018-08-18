@@ -49,7 +49,8 @@ func publishMsg(body []byte) {
 }
 
 func pushMsg(w http.ResponseWriter, r *http.Request) {
-	msg, _ := ioutil.ReadAll(r.Body)
+	msg, err := ioutil.ReadAll(r.Body)
+	checkErr(err, "Failed at receving message")
 	publishMsg(msg)
 }
 
