@@ -1,6 +1,6 @@
 # micro-services-transaction-mngt
 
-![](Images/Project.jpg)
+![](diagram.jpg)
 
 To Run this You have to build coustome Image using dockerfile which is at root of the repo. To build 
 ```sh
