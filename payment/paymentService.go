@@ -37,30 +37,39 @@ func paymentStart(w http.ResponseWriter, r *http.Request) {
 	totalAmount, err := strconv.Atoi(totalAmt[0])
 	checkErr(err, "reading params faield")
 	var updatedAcc string
-	balance, msg, err := getBalance(cardNo, totalAmount)
-	if err == nil {
+	balance, flag, msg, err := getBalance(cardNo, totalAmount)
+	if err == nil && flag == true {
 		sqlStatement := `update bank_table set balance=$1,transaction_id=$2 where card_no=$3 returning customer_name`
 		err = db.QueryRow(sqlStatement, balance, tID, cardNo).Scan(&updatedAcc)
+		checkErr(err, "Query err")
 		if err == nil {
-			w.WriteHeader(200)
+			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("Hi " + updatedAcc + " " + msg))
+		} else {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("Transaction failed"))
 		}
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Transaction failed, " + msg))
 	}
-	checkErr(err, "Query err")
 }
 
-func getBalance(cardNo int, totalAmount int) (int, string, error) {
+func getBalance(cardNo int, totalAmount int) (int, bool, string, error) {
 	var balance int
 	var msg string
+	var flag bool
 	sqlStatement := `select balance from bank_table where card_no=$1`
 	err = db.QueryRow(sqlStatement, cardNo).Scan(&balance)
 	if totalAmount > balance {
-		msg = "tranasction failed, insufficient amount in your account"
+		msg = "insufficient amount in your account"
+		flag = false
 	} else {
 		balance = balance - totalAmount
+		flag = true
 		msg = "Payment successful"
 	}
-	return balance, msg, err
+	return balance, flag, msg, err
 }
 
 func checkErr(err error, text string) {

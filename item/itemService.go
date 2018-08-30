@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
@@ -38,6 +39,35 @@ type OrderList struct {
 type UpdatedValues struct {
 	ItemID       int `json:"item_id,omitempty"`
 	ItemQuantity int `json:"item_qty,omitempty"`
+}
+
+//Message fields
+type Message struct {
+	Operation string `json:"operation,omitempty"`
+	Table     string `json:"table,omitempty"`
+	Database  string `json:"database,omitempty"`
+	Schema    string `json:"schema,omitempty"`
+	Timestamp string `json:"timestamp,omitempty"`
+	Before    Before `json:"before,omitempty"`
+	After     After  `json:"after,omitempty"`
+}
+
+//Before fields
+type Before struct {
+	ItemID   int    `json:"item_id,omitempty"`
+	ItemName string `json:"item_name,omitempty"`
+	ItemQty  int    `json:"item_quantity,omitempty"`
+	Price    int    `json:"price,omitempty"`
+	TID      string `json:"transaction_id,omitempty"`
+}
+
+//After fields
+type After struct {
+	ItemID   int    `json:"item_id,omitempty"`
+	ItemName string `json:"item_name,omitempty"`
+	ItemQty  int    `json:"item_quantity,omitempty"`
+	Price    int    `json:"price,omitempty"`
+	TID      string `json:"transaction_id,omitempty"`
 }
 
 var db *sql.DB
@@ -118,6 +148,37 @@ func getUpdatedValues(cartJSON OrderList) []UpdatedValues {
 	return lastUpdate
 }
 
+func rollBack(w http.ResponseWriter, r *http.Request) {
+	rollbackJSON := []Message{}
+	contents, err := ioutil.ReadAll(r.Body)
+	err = json.Unmarshal(contents, &rollbackJSON)
+	checkErr(err, "json problem")
+	var itemID interface{}
+	for _, v := range rollbackJSON {
+		switch v.Operation {
+		case "INSERT":
+			stmt := `delete from item_table where item_id=$1 returning item_id`
+			err := db.QueryRow(stmt, v.After.ItemID).Scan(&itemID)
+			fmt.Println("Rollback on Item id : ", itemID)
+			checkErr(err, "Query err")
+		case "DELETE":
+			stmt := `insert into item_table values($1,$2,$3,$4,null) returning item_id`
+			err := db.QueryRow(stmt, v.Before.ItemID, v.Before.ItemName, v.Before.ItemQty, v.Before.Price).Scan(&itemID)
+			fmt.Println("Rollback on Item id : ", itemID)
+			checkErr(err, "Query err")
+		case "UPDATE":
+			stmt := `update item_table set item_quantity=$1 where item_id=$2 returning item_id`
+			err := db.QueryRow(stmt, v.Before.ItemQty, v.Before.ItemID).Scan(&itemID)
+			fmt.Println("Rollback on Item id : ", itemID)
+			checkErr(err, "Query err")
+		default:
+			fmt.Println("Default executed")
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("rollback successful"))
+}
+
 func checkErr(err error, text string) {
 	if err != nil {
 		log.Fatal(err, text)
@@ -128,5 +189,6 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/getItems", getItems).Methods("GET")
 	r.HandleFunc("/updateItems", updateItems).Methods("PUT")
+	r.HandleFunc("/rollBack", rollBack).Methods("GET")
 	fmt.Println(http.ListenAndServe(":9002", r))
 }

@@ -39,8 +39,6 @@ var totalPrice = 0
 var ch = "y"
 var client = &http.Client{}
 
-//var tID string
-
 func init() {
 	clearScreen()
 }
@@ -122,7 +120,8 @@ func getOrder() {
 					if status == "200 OK" {
 						finishTransaction(tID)
 					} else {
-						fmt.Println("Not finished")
+						fmt.Println("calling transaction rollback")
+						transactionFailed(tID)
 					}
 				} else {
 					fmt.Println("failed to get transaction ID")
@@ -203,6 +202,18 @@ func finishTransaction(tID string) {
 	body, err := ioutil.ReadAll(resp.Body)
 	fmt.Println(string(body))
 	checkErr(err, "Fail to finish")
+}
+
+func transactionFailed(tID string) {
+	url := "http://localhost:9004/transactionFailed"
+	req, err := http.NewRequest("GET", url, nil)
+	q := req.URL.Query()
+	q.Add("tID", tID)
+	req.URL.RawQuery = q.Encode()
+	resp, err := client.Do(req)
+	body, err := ioutil.ReadAll(resp.Body)
+	fmt.Println(string(body))
+	checkErr(err, "Fail to rollback")
 }
 
 func checkItem(itemID int) bool {

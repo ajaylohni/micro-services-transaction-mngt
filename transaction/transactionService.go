@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
@@ -42,7 +44,7 @@ type After struct {
 	TID      string `json:"transaction_id,omitempty"`
 }
 
-var keyArray []string
+var msg = []Message{}
 var keyMap = make(map[string][]string)
 var c = cache.New(500*time.Minute, 100*time.Minute)
 
@@ -56,6 +58,42 @@ func finishTransaction(w http.ResponseWriter, r *http.Request) {
 	tID := string(tid[0])
 	c.Delete(tID)
 	w.Write([]byte("Transaction has been successfully completed"))
+}
+
+func transactionFailed(w http.ResponseWriter, r *http.Request) {
+	client := &http.Client{}
+	m := Message{}
+	defer func() { msg = []Message{} }()
+	tid := r.URL.Query()["tID"]
+	tID := string(tid[0])
+	value, found := c.Get(tID)
+	if found {
+		c.Delete(tID)
+		str := value.([]string)
+		for _, v := range str {
+			err := json.Unmarshal([]byte(v), &m)
+			checkErr(err, "\njson unmarshal failed")
+			msg = append(msg, m)
+		}
+		fmt.Printf("%v", msg)
+		b, err := json.Marshal(msg)
+		checkErr(err, "\njson unmarshal failed")
+		url := "http://localhost:9002/rollBack"
+		req, err := http.NewRequest("GET", url, bytes.NewBuffer(b))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		body, err := ioutil.ReadAll(resp.Body)
+		fmt.Println(string(body))
+		status := resp.Status
+		if status == "200 OK" {
+			w.Write([]byte("Rollback successful"))
+		} else {
+			w.Write([]byte("Rollback failed!!!"))
+		}
+		checkErr(err, "rollback failed")
+	} else {
+		w.Write([]byte("transaction id not found"))
+	}
 }
 
 func checkErr(err error, text string) {
@@ -114,15 +152,6 @@ func getMsgValues(msg []byte) {
 	checkErr(err, "---json mapping failed")
 	value := string(ct)
 	key := m.After.TID
-	flag := false
-	for _, v := range keyArray {
-		if v == key {
-			flag = true
-		}
-	}
-	if flag == false {
-		keyArray = append(keyArray, key)
-	}
 	if _, ok := keyMap[key]; ok {
 		keyMap[key] = append(keyMap[key], value)
 	} else {
@@ -137,11 +166,6 @@ func getMsgValues(msg []byte) {
 			c.Set(k, v, cache.NoExpiration)
 		}
 	}
-
-	foo, found := c.Get(key)
-	if found {
-		fmt.Println("\n--> this is the cache value for key ", key, "\n\n", foo)
-	}
 }
 
 func main() {
@@ -149,5 +173,6 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/getTransactionID", getTransactionID).Methods("GET")
 	r.HandleFunc("/finishTransaction", finishTransaction).Methods("GET")
+	r.HandleFunc("/transactionFailed", transactionFailed).Methods("GET")
 	fmt.Println(http.ListenAndServe(":9004", r))
 }
