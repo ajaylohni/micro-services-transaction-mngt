@@ -45,11 +45,16 @@ func init() {
 
 func getItems() {
 	var item []Items
-	response, err := http.Get("http://localhost:9002/getItems")
-	checkErr(err, "getItems Failed")
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("\n-> getItems failed", r)
+		}
+	}()
+	response, err := http.Get("http://Items:9002/getItems")
+	checkErr(err, "\n-> Getting items from Item service Failed")
 	contents, err := ioutil.ReadAll(response.Body)
 	err = json.Unmarshal(contents, &item)
-	checkErr(err, "json problem")
+	checkErr(err, "\n-> Json unmarshal of items failed")
 	defer response.Body.Close()
 	totalItems = item
 	displayItems(item, "Item")
@@ -124,7 +129,7 @@ func getOrder() {
 						transactionFailed(tID)
 					}
 				} else {
-					fmt.Println("failed to get transaction ID")
+					fmt.Println("\n-> Failed to get transaction ID")
 				}
 			} else {
 				os.Exit(1)
@@ -154,7 +159,12 @@ func cart(itemID int, itemName string, itemQty int, itemPrice int) {
 
 func updateItems(tID string, cartItem []Items) string {
 	cartJSON := OrderList{tID, cartItem}
-	url := "http://localhost:9002/updateItems"
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("\n-> updateItems failed", r)
+		}
+	}()
+	url := "http://Items:9002/updateItems"
 	b := new(bytes.Buffer)
 	json.NewEncoder(b).Encode(&cartJSON)
 	req, err := http.NewRequest("PUT", url, b)
@@ -162,13 +172,17 @@ func updateItems(tID string, cartItem []Items) string {
 	body, err := ioutil.ReadAll(resp.Body)
 	fmt.Println(string(body))
 	status := resp.Status
-	checkErr(err, "update call failed")
+	checkErr(err, "\n-> Updating items failed")
 	return status
 }
 
 func payment(tID string, cardNo int, totalAmount int) string {
-
-	url := "http://localhost:9003/payment"
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("\n-> Payment failed", r)
+		}
+	}()
+	url := "http://Payment:9003/payment"
 	req, err := http.NewRequest("GET", url, nil)
 	q := req.URL.Query()
 	q.Add("tID", tID)
@@ -179,21 +193,32 @@ func payment(tID string, cardNo int, totalAmount int) string {
 	body, err := ioutil.ReadAll(resp.Body)
 	status := resp.Status
 	fmt.Println(string(body))
-	checkErr(err, "payment call failed")
+	checkErr(err, "\n-> Payment service call failed")
 	return status
 }
 
 func getUUID() string {
-	url := "http://localhost:9004/getTransactionID"
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("\n-> Getting UID failed", r)
+		}
+	}()
+	url := "http://Transaction:9004/getTransactionID"
 	req, err := http.NewRequest("GET", url, nil)
 	resp, err := client.Do(req)
 	body, err := ioutil.ReadAll(resp.Body)
-	checkErr(err, "Failed at getting transaction ID")
+	fmt.Println(string(body))
+	checkErr(err, "\n-> Failed at getting transaction ID")
 	return string(body)
 }
 
 func finishTransaction(tID string) {
-	url := "http://localhost:9004/finishTransaction"
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("\n-> Finishing Transaction failed:", r)
+		}
+	}()
+	url := "http://Transaction:9004/finishTransaction"
 	req, err := http.NewRequest("GET", url, nil)
 	q := req.URL.Query()
 	q.Add("tID", tID)
@@ -205,7 +230,12 @@ func finishTransaction(tID string) {
 }
 
 func transactionFailed(tID string) {
-	url := "http://localhost:9004/transactionFailed"
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("\n-> Rollback call failed", r)
+		}
+	}()
+	url := "http://Transaction:9004/transactionFailed"
 	req, err := http.NewRequest("GET", url, nil)
 	q := req.URL.Query()
 	q.Add("tID", tID)
@@ -213,7 +243,7 @@ func transactionFailed(tID string) {
 	resp, err := client.Do(req)
 	body, err := ioutil.ReadAll(resp.Body)
 	fmt.Println(string(body))
-	checkErr(err, "Fail to rollback")
+	checkErr(err, "\n-> Fail to rollback")
 }
 
 func checkItem(itemID int) bool {
@@ -256,6 +286,8 @@ func checkErr(err error, text string) {
 func main() {
 	fmt.Println("\nThis is the order service...")
 	getItems()
-	fmt.Println("\nPlace your order...")
 	getOrder()
+	/* r := mux.NewRouter()
+	r.HandleFunc("/getOrder", getOrder).Methods("GET")
+	fmt.Println(http.ListenAndServe(":9001", r)) */
 }

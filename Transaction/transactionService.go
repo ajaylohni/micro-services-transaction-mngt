@@ -61,12 +61,19 @@ func finishTransaction(w http.ResponseWriter, r *http.Request) {
 }
 
 func transactionFailed(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("\n-> Tranaction failed", r)
+		}
+	}()
 	client := &http.Client{}
 	m := Message{}
 	defer func() { msg = []Message{} }()
 	tid := r.URL.Query()["tID"]
 	tID := string(tid[0])
 	value, found := c.Get(tID)
+	/*this is for test */
+	fmt.Println("\nCached value is for roll back is : ", value)
 	if found {
 		c.Delete(tID)
 		str := value.([]string)
@@ -75,10 +82,11 @@ func transactionFailed(w http.ResponseWriter, r *http.Request) {
 			checkErr(err, "\njson unmarshal failed")
 			msg = append(msg, m)
 		}
-		fmt.Printf("%v", msg)
+		fmt.Printf("\n#-> This is rollback json : %v", msg)
+		fmt.Println()
 		b, err := json.Marshal(msg)
 		checkErr(err, "\njson unmarshal failed")
-		url := "http://localhost:9002/rollBack"
+		url := "http://Items:9002/rollBack"
 		req, err := http.NewRequest("GET", url, bytes.NewBuffer(b))
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := client.Do(req)
@@ -86,13 +94,13 @@ func transactionFailed(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(string(body))
 		status := resp.Status
 		if status == "200 OK" {
-			w.Write([]byte("Rollback successful"))
+			w.Write([]byte("\n-> Rollback successful"))
 		} else {
-			w.Write([]byte("Rollback failed!!!"))
+			w.Write([]byte("\n-> Rollback failed!!!"))
 		}
 		checkErr(err, "rollback failed")
 	} else {
-		w.Write([]byte("transaction id not found"))
+		w.Write([]byte("\n-> transaction id not found"))
 	}
 }
 
@@ -103,12 +111,12 @@ func checkErr(err error, text string) {
 }
 
 func getMessages() {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	checkErr(err, "Failed to connect to RabbitMQ")
+	conn, err := amqp.Dial("amqp://guest:guest@RabbitMq:5672/")
+	checkErr(err, "\n-> Failed to connect to RabbitMQ")
 	defer conn.Close()
 
 	ch, err := conn.Channel()
-	checkErr(err, "Failed to open a channel")
+	checkErr(err, "\n-> Failed to open a channel")
 	defer ch.Close()
 
 	q, err := ch.QueueDeclare(

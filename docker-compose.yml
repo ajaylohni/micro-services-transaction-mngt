@@ -1,0 +1,93 @@
+version: "3"
+services:
+  item:
+    container_name: Items
+    build: ./Items 
+    networks: 
+      - my-network 
+    depends_on: 
+          - rabbitmq
+          - postgres
+    restart: on-failure
+
+  order:
+    container_name: Order
+    build: ./Order
+    # ports: 
+    #   - "9001:9001"
+    networks: 
+      - my-network
+    depends_on: 
+          - item
+          - rabbitmq
+          - postgres
+    restart: on-failure
+
+  payment:
+    container_name: Payment
+    build: ./Payment
+    networks: 
+      - my-network
+    depends_on: 
+        - rabbitmq
+        - postgres
+    restart: on-failure
+
+  transaction:
+    container_name: Transaction
+    build: ./Transaction
+    networks: 
+      - my-network
+    depends_on: 
+      - rabbitmq
+      - postgres
+    tty: false
+    restart: on-failure
+
+   
+  rabbitmq:
+    container_name: RabbitMq
+    hostname: rabbit-host
+    build: ./RabbitMQ
+    volumes: 
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks: 
+      - my-network
+    tty: false
+    restart: on-failure
+    
+
+  postgres:
+    container_name: Postgres
+    build: ./PostgreSQL
+    environment:
+      POSTGRES_DB: test
+      POSTGRES_PASSWORD: data
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    #command: sh -c "psql -d test -U postgres -f test_db.sql"
+    networks: 
+      - my-network
+    tty: false
+    restart: on-failure
+
+  pgamqp:
+    container_name: PgAmqp
+    image: subzerocloud/pg-amqp-bridge:latest
+    environment: 
+      POSTGRESQL_URI: postgres://postgres:data@Postgres/test
+      AMQP_URI: amqp://RabbitMq//
+      BRIDGE_CHANNELS: pgchannel:task_queue
+    networks: 
+      - my-network
+    depends_on: 
+      - postgres
+      - rabbitmq
+    restart: on-failure
+
+volumes: 
+  rabbitmq_data:
+  postgres_data:
+
+networks: 
+  my-network:

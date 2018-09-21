@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	host   = "localhost"
+	host   = "Postgres"
 	port   = 5432
 	dbUser = "postgres"
 	dbPass = "data"
@@ -29,6 +29,11 @@ func init() {
 }
 
 func paymentStart(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("\n-> Payment failed", r)
+		}
+	}()
 	tid := r.URL.Query()["tID"]
 	cardno := r.URL.Query()["cardNo"]
 	totalAmt := r.URL.Query()["totalAmount"]
@@ -59,6 +64,11 @@ func getBalance(cardNo int, totalAmount int) (int, bool, string, error) {
 	var balance int
 	var msg string
 	var flag bool
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("\n-> Getting Balance failed", r)
+		}
+	}()
 	sqlStatement := `select balance from bank_table where card_no=$1`
 	err = db.QueryRow(sqlStatement, cardNo).Scan(&balance)
 	if totalAmount > balance {
