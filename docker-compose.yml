@@ -13,8 +13,8 @@ services:
   order:
     container_name: Order
     build: ./Order
-    # ports: 
-    #   - "9001:9001"
+    stdin_open: true
+    tty: true
     networks: 
       - my-network
     depends_on: 
@@ -65,7 +65,7 @@ services:
       POSTGRES_PASSWORD: data
     volumes:
       - postgres_data:/var/lib/postgresql
-    #command: sh -c "psql -d test -U postgres -f test_db.sql"
+      - postgres_vol:/var/lib/postgresql/data
     networks: 
       - my-network
     tty: false
@@ -88,6 +88,7 @@ services:
 volumes: 
   rabbitmq_data:
   postgres_data:
-
+  postgres_vol:
+  
 networks: 
   my-network:

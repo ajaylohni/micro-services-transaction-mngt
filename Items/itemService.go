@@ -87,6 +87,7 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 	var discarted interface{}
 	var jsonArray []string
 
+	items = []byte{}
 	defer func() {
 		if r := recover(); r != nil {
 			log.Println("\n-> Getting items from database failed", r)
@@ -131,7 +132,6 @@ func updateItems(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&cartJSON)
 	checkErr(err, "\n-> failed to decode request json")
 	last := getUpdatedValues(cartJSON)
-	fmt.Println(last)
 	for _, v := range last {
 		var updatedItem int
 		sqlStatement := `update item_table set item_quantity=$1,transaction_id=$2 where item_id=$3 returning item_id`
@@ -182,22 +182,16 @@ func rollBack(w http.ResponseWriter, r *http.Request) {
 			stmt := `delete from item_table where item_id=$1 returning item_id`
 			err := db.QueryRow(stmt, v.After.ItemID).Scan(&itemID)
 			fmt.Println("Rollback on Item id : ", itemID)
-			/*this is for test */
-			fmt.Printf("\nThe Item values are : %+v", v)
 			checkErr(err, "Query err")
 		case "DELETE":
 			stmt := `insert into item_table values($1,$2,$3,$4,null) returning item_id`
 			err := db.QueryRow(stmt, v.Before.ItemID, v.Before.ItemName, v.Before.ItemQty, v.Before.Price).Scan(&itemID)
 			fmt.Println("Rollback on Item id : ", itemID)
-			/*this is for test */
-			fmt.Printf("\nThe Item values are : %+v", v)
 			checkErr(err, "Query err")
 		case "UPDATE":
 			stmt := `update item_table set item_quantity=$1 where item_id=$2 returning item_id`
 			err := db.QueryRow(stmt, v.Before.ItemQty, v.Before.ItemID).Scan(&itemID)
 			fmt.Println("Rollback on Item id : ", itemID)
-			/*this is for test */
-			fmt.Printf("\nThe Item values are : %+v", v)
 			checkErr(err, "Query err")
 		default:
 			fmt.Println("Default executed")

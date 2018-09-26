@@ -118,9 +118,9 @@ func getOrder() {
 				if tID != "" {
 					var cardNo int
 					var status string
+					status = updateItems(tID, cartItems)
 					fmt.Print("Enter your card No : ")
 					fmt.Scanln(&cardNo)
-					status = updateItems(tID, cartItems)
 					status = payment(tID, cardNo, totalPrice)
 					if status == "200 OK" {
 						finishTransaction(tID)

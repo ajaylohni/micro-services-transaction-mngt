@@ -8,7 +8,7 @@ CREATE or REPLACE FUNCTION create_item_table() RETURNS void AS $item$
 			transaction_id text default null
 			);
 		RAISE NOTICE 'item_table is created';
-		insert into item_table values(101,'Milk',5,20),(102,'Bread',3,30),(103,'Cheese',2,120),(104,'Eggs',4,50),(105,'Oats',2,25),(106,'Others',3,40);																	
+		insert into item_table values(101,'Milk',5,20),(102,'Bread',3,30),(103,'Cheese',2,120),(104,'Eggs',4,50),(105,'Oats',5,25);																	
 		RAISE NOTICE 'Values inserted to item_table';
 		CREATE TRIGGER send_change_event
 			AFTER INSERT OR DELETE OR UPDATE 
