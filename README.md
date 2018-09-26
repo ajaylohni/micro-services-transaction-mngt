@@ -7,7 +7,7 @@ $ docker built -t golang:custom .
 ```sh
 $ docker-compose up --build
 ```
-To execute order service
+- To execute order service
 ```sh
 $ docker exec -it Order ./orderService
 ```
